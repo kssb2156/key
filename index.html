@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Sum Calculator Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <div class="header-left">
+                <h1>📄 PDF Sum Calculator</h1>
+                <p class="subtitle">ดับเบิลคลิกบนหน้า PDF เพื่อเพิ่มช่องตัวเลข • ลากเพื่อย้าย • ดับเบิลคลิกช่องเพื่อแก้ไข</p>
+            </div>
+            <div class="header-right">
+                <button id="saveBtn" class="save-label" disabled>
+                    <span class="file-icon">💾</span> บันทึก PDF
+                </button>
+                <label class="file-label" for="pdfInput">
+                    <span class="file-icon">📁</span> เลือกไฟล์ PDF
+                </label>
+                <input type="file" id="pdfInput" accept="application/pdf">
+            </div>
+        </header>
+
+        <!-- Summary Panel -->
+        <div id="summary-panel">
+            <div class="summary-total">
+                <div class="summary-label">ยอดรวมทั้งหมด</div>
+                <div class="summary-value"><span id="grand-total">0</span> บาท</div>
+            </div>
+            <div class="summary-pages" id="page-summary-list">
+                <!-- Per-page summaries will be injected here -->
+            </div>
+            <div class="page-filter">
+                <label>ดูยอดหน้า:</label>
+                <select id="page-filter-select">
+                    <option value="all">ทุกหน้า</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Page Navigation -->
+        <div id="page-nav" class="hidden">
+            <button id="nav-prev" class="nav-btn">◀ ก่อนหน้า</button>
+            <span id="nav-info"></span>
+            <button id="nav-next" class="nav-btn">ถัดไป ▶</button>
+            <button id="nav-all" class="nav-btn nav-all-btn">แสดงทุกหน้า</button>
+        </div>
+
+        <!-- Viewer -->
+        <div id="viewer">
+            <div id="empty-state">
+                <div class="empty-icon">📄</div>
+                <p>เลือกไฟล์ PDF เพื่อเริ่มต้น</p>
+                <p class="empty-hint">รองรับ PDF หลายหน้า • ดับเบิลคลิกเพื่อเพิ่มช่องตัวเลข • ลากเพื่อย้าย</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
