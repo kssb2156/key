@@ -94,6 +94,48 @@ body {
     display: flex;
     gap: 12px;
     align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.project-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.save-project-btn {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+}
+
+.save-project-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+}
+
+.save-project-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.load-project-btn {
+    background: linear-gradient(135deg, #fccb90, #d57eeb);
+    box-shadow: 0 4px 15px rgba(213, 126, 235, 0.4);
+}
+
+.load-project-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(213, 126, 235, 0.6);
 }
 
 .file-icon {
