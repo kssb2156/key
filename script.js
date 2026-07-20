@@ -54,8 +54,9 @@ document.getElementById('pdfInput').addEventListener('change', async (e) => {
             viewer.appendChild(div);
         }
 
-        // Enable save button
+        // Enable save buttons
         document.getElementById('saveBtn').disabled = false;
+        document.getElementById('saveProjectBtn').disabled = false;
 
         setupPageNavigation();
         updatePageSummaryBadges();
@@ -513,6 +514,123 @@ function updatePageSummaryBadges(pageTotals) {
         container.appendChild(badge);
     }
 }
+
+// ===== Save/Load Project (Backup) =====
+
+// Save project as JSON
+document.getElementById('saveProjectBtn').addEventListener('click', () => {
+    const projectData = {
+        version: 1,
+        totalPages: totalPages,
+        pages: []
+    };
+
+    document.querySelectorAll('.page-container').forEach(container => {
+        const pageNum = parseInt(container.dataset.page);
+        const inputs = [];
+
+        container.querySelectorAll('.input-wrapper').forEach(wrapper => {
+            const input = wrapper.querySelector('.input-box');
+            inputs.push({
+                left: wrapper.style.left,
+                top: wrapper.style.top,
+                value: input.value || ''
+            });
+        });
+
+        projectData.pages.push({
+            page: pageNum,
+            inputs: inputs
+        });
+    });
+
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pdf-calculator-backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// Load project from JSON
+document.getElementById('loadProjectInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const projectData = JSON.parse(reader.result);
+
+            if (!projectData.pages || !Array.isArray(projectData.pages)) {
+                alert('ไฟล์สำรองไม่ถูกต้อง');
+                return;
+            }
+
+            // Check if PDF is loaded and pages match
+            if (totalPages === 0) {
+                alert('กรุณาอัพโหลดไฟล์ PDF ก่อน แล้วค่อยโหลดไฟล์สำรอง');
+                return;
+            }
+
+            if (projectData.totalPages && projectData.totalPages !== totalPages) {
+                if (!confirm(`ไฟล์สำรองมี ${projectData.totalPages} หน้า แต่ PDF ปัจจุบันมี ${totalPages} หน้า\nต้องการโหลดต่อหรือไม่?`)) {
+                    return;
+                }
+            }
+
+            // Clear existing inputs
+            document.querySelectorAll('.input-wrapper').forEach(w => w.remove());
+
+            // Restore inputs
+            projectData.pages.forEach(pageData => {
+                const container = document.querySelector(`.page-container[data-page="${pageData.page}"]`);
+                if (!container) return;
+
+                pageData.inputs.forEach(inputData => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'input-wrapper';
+                    wrapper.style.left = inputData.left;
+                    wrapper.style.top = inputData.top;
+
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.className = 'input-box';
+                    input.placeholder = '0';
+                    input.value = inputData.value;
+                    input.addEventListener('input', calculateSum);
+
+                    const del = document.createElement('div');
+                    del.className = 'delete-btn';
+                    del.innerHTML = '×';
+                    del.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        wrapper.remove();
+                        calculateSum();
+                    });
+
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(del);
+                    container.appendChild(wrapper);
+
+                    makeDraggable(wrapper, input, container);
+                });
+            });
+
+            // Recalculate
+            calculateSum();
+            alert('โหลดไฟล์สำรองเรียบร้อย!');
+
+        } catch (err) {
+            alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+
+    // Reset input so same file can be loaded again
+    e.target.value = '';
+});
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
