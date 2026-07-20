@@ -17,6 +17,13 @@
                 <p class="subtitle">ดับเบิลคลิกบนหน้า PDF เพื่อเพิ่มช่องตัวเลข • ลากเพื่อย้าย • ดับเบิลคลิกช่องเพื่อแก้ไข</p>
             </div>
             <div class="header-right">
+                <button id="saveProjectBtn" class="project-btn save-project-btn" disabled>
+                    <span class="file-icon">📋</span> สำรองงาน
+                </button>
+                <label class="project-btn load-project-btn" for="loadProjectInput">
+                    <span class="file-icon">📂</span> โหลดงาน
+                </label>
+                <input type="file" id="loadProjectInput" accept=".json" style="display:none;">
                 <button id="saveBtn" class="save-label" disabled>
                     <span class="file-icon">💾</span> บันทึก PDF
                 </button>
