@@ -1,74 +1,592 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Sum Calculator Pro</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>เครื่องมือรวมยอดจาก PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+  :root{
+    --bg:#14161a;
+    --panel:#1d2026;
+    --panel-2:#242832;
+    --line:#333844;
+    --text:#e9ebef;
+    --muted:#8b93a3;
+    --accent:#4fd1a5;
+    --accent-2:#f2b544;
+    --danger:#e2664f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI', 'Noto Sans Thai', system-ui, sans-serif;
+    font-size:14px;
+  }
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  /* Top bar */
+  #topbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+  }
+  #topbar h1{font-size:15px;font-weight:600;margin:0 14px 0 0;white-space:nowrap;color:var(--text);}
+  .btn{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);
+    padding:7px 12px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+  input[type=file]{color:var(--muted);font-size:12px;max-width:180px;}
+  #pageNav{display:flex;align-items:center;gap:6px;margin-left:auto;}
+  #pageNav span{color:var(--muted);}
+  #pageInput{width:44px;text-align:center;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:5px;}
+
+  /* Color picker area */
+  .ink-color-group{
+    display:flex;align-items:center;gap:6px;
+    padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel-2);
+  }
+  .ink-color-group label{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .ink-color-group input[type=color]{
+    width:28px;height:28px;border:none;background:transparent;cursor:pointer;padding:0;
+  }
+  .color-presets{display:flex;gap:4px;align-items:center;}
+  .color-preset{
+    width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+    transition:border-color .15s, transform .15s;
+  }
+  .color-preset:hover{transform:scale(1.2);}
+  .color-preset.active{border-color:var(--text);transform:scale(1.15);}
+
+  /* Body layout */
+  #body{flex:1;display:flex;min-height:0;}
+  #viewerPane{flex:1;overflow:auto;padding:24px;display:flex;justify-content:center;background:#0e1013;}
+  #pageContainer{position:relative;box-shadow:0 6px 24px rgba(0,0,0,.5);height:fit-content;background:#fff;}
+  #pdfCanvas{display:block;}
+  #overlay{position:absolute;top:0;left:0;cursor:default;}
+  #emptyState{margin:auto;color:var(--muted);text-align:center;max-width:360px;line-height:1.6;}
+  #emptyState b{color:var(--text);}
+
+  /* Sidebar */
+  #sidebar{width:280px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto;}
+  .sb-section{padding:14px 16px;border-bottom:1px solid var(--line);}
+  .sb-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .sb-total{font-size:22px;font-weight:700;}
+  .sb-total.grand{color:var(--accent);font-size:26px;}
+  .page-summary-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--muted);}
+  .page-summary-row.current{color:var(--text);font-weight:600;}
+  #instructions{font-size:12px;color:var(--muted);line-height:1.7;padding:14px 16px;}
+  #instructions b{color:var(--text);}
+
+  /* Overlay elements */
+  .num-chip{
+    position:absolute;display:flex;align-items:center;background:rgba(255,255,255,.97);
+    border-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,.3);
+  }
+  .num-chip .handle{
+    cursor:grab;font-size:12px;padding:0 3px 0 5px;user-select:none;letter-spacing:-2px;
+  }
+  .num-chip .handle:active{cursor:grabbing;}
+  .num-chip input{
+    width:60px;border:none;background:transparent;padding:4px 5px;font-size:13px;
+    text-align:right;font-weight:600;
+  }
+  .num-chip input:focus{outline:2px solid #2d8fef;outline-offset:-1px;}
+  .num-chip .del{cursor:pointer;color:#b23; padding:0 6px;font-size:12px;font-weight:700;}
+  .num-chip .del:hover{color:#e2664f;}
+</style>
 </head>
 <body>
-    <div id="app">
-        <!-- Header -->
-        <header id="header">
-            <div class="header-left">
-                <h1>📄 PDF Sum Calculator</h1>
-                <p class="subtitle">ดับเบิลคลิกบนหน้า PDF เพื่อเพิ่มช่องตัวเลข • ลากเพื่อย้าย • ดับเบิลคลิกช่องเพื่อแก้ไข</p>
-            </div>
-            <div class="header-right">
-                <button id="saveProjectBtn" class="project-btn save-project-btn" disabled>
-                    <span class="file-icon">📋</span> สำรองงาน
-                </button>
-                <label class="project-btn load-project-btn" for="loadProjectInput">
-                    <span class="file-icon">📂</span> โหลดงาน
-                </label>
-                <input type="file" id="loadProjectInput" accept=".json" style="display:none;">
-                <button id="saveBtn" class="save-label" disabled>
-                    <span class="file-icon">💾</span> บันทึก PDF
-                </button>
-                <label class="file-label" for="pdfInput">
-                    <span class="file-icon">📁</span> เลือกไฟล์ PDF
-                </label>
-                <input type="file" id="pdfInput" accept="application/pdf">
-            </div>
-        </header>
+<div id="app">
 
-        <!-- Summary Panel -->
-        <div id="summary-panel">
-            <div class="summary-total">
-                <div class="summary-label">ยอดรวมทั้งหมด</div>
-                <div class="summary-value"><span id="grand-total">0</span> บาท</div>
-            </div>
-            <div class="summary-pages" id="page-summary-list">
-                <!-- Per-page summaries will be injected here -->
-            </div>
-            <div class="page-filter">
-                <label>ดูยอดหน้า:</label>
-                <select id="page-filter-select">
-                    <option value="all">ทุกหน้า</option>
-                </select>
-            </div>
-        </div>
+  <div id="topbar">
+    <h1>🧮 รวมยอด PDF</h1>
+    <input type="file" id="fileInput" accept="application/pdf">
+    <button class="btn danger" id="clearPageBtn">ล้างหน้านี้</button>
+    <button class="btn" id="exportPdfBtn" style="background:var(--accent);color:#0c1210;border-color:var(--accent);font-weight:600;" title="พิมพ์ตัวเลขทั้งหมดลงบน PDF แล้วดาวน์โหลด">📄 บันทึกเป็น PDF</button>
+    <div class="ink-color-group">
+      <label>🖊️ สีหมึก:</label>
+      <div class="color-presets" id="colorPresets">
+        <div class="color-preset active" data-color="#1a6bbf" style="background:#1a6bbf;" title="น้ำเงิน"></div>
+        <div class="color-preset" data-color="#d9480f" style="background:#d9480f;" title="ส้ม"></div>
+        <div class="color-preset" data-color="#c92a2a" style="background:#c92a2a;" title="แดง"></div>
+        <div class="color-preset" data-color="#2b8a3e" style="background:#2b8a3e;" title="เขียว"></div>
+        <div class="color-preset" data-color="#5f3dc4" style="background:#5f3dc4;" title="ม่วง"></div>
+        <div class="color-preset" data-color="#111111" style="background:#111111;" title="ดำ"></div>
+      </div>
+      <input type="color" id="customColorPicker" value="#1a6bbf" title="เลือกสีเอง">
+    </div>
+    <div id="pageNav">
+      <button class="btn" id="prevBtn">◀</button>
+      <span>หน้า</span>
+      <input id="pageInput" value="1">
+      <span id="pageCount">/ 1</span>
+      <button class="btn" id="nextBtn">▶</button>
+    </div>
+  </div>
 
-        <!-- Page Navigation -->
-        <div id="page-nav" class="hidden">
-            <button id="nav-prev" class="nav-btn">◀ ก่อนหน้า</button>
-            <span id="nav-info"></span>
-            <button id="nav-next" class="nav-btn">ถัดไป ▶</button>
-            <button id="nav-all" class="nav-btn nav-all-btn">แสดงทุกหน้า</button>
-        </div>
-
-        <!-- Viewer -->
-        <div id="viewer">
-            <div id="empty-state">
-                <div class="empty-icon">📄</div>
-                <p>เลือกไฟล์ PDF เพื่อเริ่มต้น</p>
-                <p class="empty-hint">รองรับ PDF หลายหน้า • ดับเบิลคลิกเพื่อเพิ่มช่องตัวเลข • ลากเพื่อย้าย</p>
-            </div>
-        </div>
+  <div id="body">
+    <div id="viewerPane">
+      <div id="emptyState">
+        <p><b>ยังไม่ได้โหลดไฟล์ PDF</b></p>
+        <p>กด "เลือกไฟล์" ด้านบนเพื่อเปิด PDF จากนั้น <b>ดับเบิลคลิก</b> จุดที่ต้องการบนตัวเลขในภาพ เพื่อสร้างช่องกรอกตัวเลขตรงนั้น</p>
+      </div>
+      <div id="pageContainer" style="display:none;">
+        <canvas id="pdfCanvas"></canvas>
+        <div id="overlay"></div>
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <div id="sidebar">
+      <div class="sb-section">
+        <div class="sb-title">ยอดรวมทั้งหมดทุกหน้า</div>
+        <div class="sb-total grand" id="grandTotal">0</div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-title">ยอดรวมหน้านี้</div>
+        <div class="sb-total" id="pageTotal">0</div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-title">สรุปทุกหน้า</div>
+        <div id="pageSummaryList"><span style="color:var(--muted);font-size:12px;">ยังไม่มีข้อมูล</span></div>
+      </div>
+      <div id="instructions">
+        <b>วิธีใช้</b><br>
+        • <b>ดับเบิลคลิก</b> จุดว่างบนหน้ากระดาษ เพื่อสร้างช่องกรอกตัวเลขตรงจุดนั้น<br>
+        • พิมพ์ตัวเลขในช่องได้เลย ระบบรวมยอดให้อัตโนมัติ<br>
+        • ย้ายตำแหน่ง: กดค้างที่จุด <b>⠿</b> ด้านซ้ายของช่อง แล้วลาก<br>
+        • กด × เพื่อลบช่องนั้น<br>
+        • เลือกสีหมึกได้จากแถบด้านบน สีจะใช้กับช่องที่สร้างใหม่<br>
+        • คลิกที่ช่องเดิมแล้วเปลี่ยนสีจากแถบ จะอัปเดตสีช่องนั้นทันที<br><br>
+        <b>📄 บันทึกเป็น PDF</b><br>
+        ใช้ตอนกรอกครบแล้ว ต้องการไฟล์ไปพิมพ์/ส่งให้คนอื่นดู ปุ่มนี้จะพิมพ์ตัวเลขลงถาวรในหน้ากระดาษ
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// ---------- State ----------
+let pdfDoc = null;
+let currentPage = 1;
+let numPages = 1;
+let scale = 2.0; // higher scale for sharper rendering
+let docKey = null;
+let saveTimer = null;
+let originalPdfBytes = null;
+let currentFileName = 'document';
+let currentInkColor = '#1a6bbf'; // default ink color
+let selectedChipId = null; // currently selected chip for color change
+
+// pageData[pageNum] = { loose: [{id,x,y,value,color}] }
+let pageData = {};
+
+function uid(){ return 'id' + Math.random().toString(36).slice(2,10); }
+
+function ensurePage(p){
+  if(!pageData[p]) pageData[p] = { loose: [] };
+  if(!pageData[p].loose) pageData[p].loose = [];
+  if(pageData[p].boxes){
+    pageData[p].boxes.forEach(box=>{
+      (box.numbers||[]).forEach(n=>{
+        pageData[p].loose.push({id:uid(), x:box.x+(n.dx||0), y:box.y+(n.dy||0), value:n.value, color:'#1a6bbf'});
+      });
+    });
+    delete pageData[p].boxes;
+  }
+  return pageData[p];
+}
+
+function parseNum(str){
+  if(!str) return 0;
+  const cleaned = String(str).replace(/[^0-9.\-]/g,'');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
+function fmt(n){
+  return n.toLocaleString('en-US', {maximumFractionDigits:2});
+}
+
+// ---------- Color picker ----------
+const colorPresets = document.getElementById('colorPresets');
+const customColorPicker = document.getElementById('customColorPicker');
+
+colorPresets.addEventListener('click', (e)=>{
+  const preset = e.target.closest('.color-preset');
+  if(!preset) return;
+  const color = preset.dataset.color;
+  setInkColor(color);
+  customColorPicker.value = color;
+});
+
+customColorPicker.addEventListener('input', (e)=>{
+  setInkColor(e.target.value);
+});
+
+function setInkColor(color){
+  currentInkColor = color;
+  // Update preset active state
+  document.querySelectorAll('.color-preset').forEach(el=>{
+    el.classList.toggle('active', el.dataset.color === color);
+  });
+  // If a chip is selected, update its color
+  if(selectedChipId){
+    const pd = ensurePage(currentPage);
+    const numObj = pd.loose.find(n=>n.id===selectedChipId);
+    if(numObj){
+      numObj.color = color;
+      // Update chip visuals without full re-render to keep focus
+      updateChipColors(numObj.id, color);
+      scheduleSave();
+    }
+  }
+}
+
+function updateChipColors(chipId, color){
+  const overlay = document.getElementById('overlay');
+  const chips = overlay.querySelectorAll('.num-chip');
+  const pd = ensurePage(currentPage);
+  chips.forEach((chip, idx)=>{
+    const numObj = pd.loose[idx];
+    if(!numObj) return;
+    if(numObj.id === chipId){
+      chip.style.border = '1.5px solid ' + color;
+      chip.style.boxShadow = '0 0 0 2px ' + color + '55, 0 1px 4px rgba(0,0,0,.3)';
+      const handle = chip.querySelector('.handle');
+      const input = chip.querySelector('input');
+      if(handle) handle.style.color = color;
+      if(input) input.style.color = color;
+    }
+  });
+}
+
+function updateChipHighlights(){
+  const overlay = document.getElementById('overlay');
+  const chips = overlay.querySelectorAll('.num-chip');
+  const pd = ensurePage(currentPage);
+  chips.forEach((chip, idx)=>{
+    const numObj = pd.loose[idx];
+    if(!numObj) return;
+    const color = numObj.color || '#1a6bbf';
+    if(numObj.id === selectedChipId){
+      chip.style.boxShadow = '0 0 0 2px ' + color + '55, 0 1px 4px rgba(0,0,0,.3)';
+    } else {
+      chip.style.boxShadow = '0 1px 4px rgba(0,0,0,.3)';
+    }
+  });
+}
+
+// ---------- PDF loading ----------
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const buf = await file.arrayBuffer();
+  originalPdfBytes = new Uint8Array(buf.slice(0));
+  currentFileName = file.name.replace(/\.pdf$/i,'');
+  pdfDoc = await pdfjsLib.getDocument({data: buf.slice(0)}).promise;
+  numPages = pdfDoc.numPages;
+  document.getElementById('pageCount').textContent = '/ ' + numPages;
+  document.getElementById('pageContainer').style.display = 'block';
+  document.getElementById('emptyState').style.display = 'none';
+  currentPage = 1;
+  pageData = {};
+  docKey = 'pdftally:' + file.name.replace(/\s+/g,'_') + '_' + file.size;
+
+  await tryLoadSaved();
+  renderPage(currentPage);
+});
+
+async function renderPage(p){
+  const page = await pdfDoc.getPage(p);
+  const viewport = page.getViewport({scale});
+  const canvas = document.getElementById('pdfCanvas');
+  const overlay = document.getElementById('overlay');
+  
+  // Use devicePixelRatio for sharper rendering on high-DPI screens
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = viewport.width * dpr;
+  canvas.height = viewport.height * dpr;
+  canvas.style.width = viewport.width + 'px';
+  canvas.style.height = viewport.height + 'px';
+  
+  overlay.style.width = viewport.width + 'px';
+  overlay.style.height = viewport.height + 'px';
+  document.getElementById('pageContainer').style.width = viewport.width + 'px';
+  document.getElementById('pageContainer').style.height = viewport.height + 'px';
+  
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  await page.render({canvasContext: ctx, viewport}).promise;
+  document.getElementById('pageInput').value = p;
+  selectedChipId = null;
+  renderOverlay();
+  updateAllTotals();
+}
+
+// ---------- Overlay rendering ----------
+function renderOverlay(){
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = '';
+  const pd = ensurePage(currentPage);
+  pd.loose.forEach(n => overlay.appendChild(buildChipEl(n)));
+}
+
+function buildChipEl(numObj){
+  const chip = document.createElement('div');
+  chip.className = 'num-chip';
+  const color = numObj.color || '#1a6bbf';
+  chip.style.borderColor = color;
+  chip.style.border = '1.5px solid ' + color;
+
+  if(numObj.id === selectedChipId){
+    chip.style.boxShadow = '0 0 0 2px ' + color + '55, 0 1px 4px rgba(0,0,0,.3)';
+  }
+
+  function reposition(){
+    chip.style.left = (numObj.x*scale)+'px';
+    chip.style.top = (numObj.y*scale)+'px';
+  }
+  reposition();
+
+  const handle = document.createElement('span');
+  handle.className = 'handle';
+  handle.textContent = '⠿';
+  handle.title = 'ลากเพื่อย้ายตำแหน่ง';
+  handle.style.color = color;
+  chip.appendChild(handle);
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = '0';
+  input.value = numObj.value;
+  input.style.color = color;
+  input.addEventListener('mousedown', e=>e.stopPropagation());
+  input.addEventListener('focus', ()=>{
+    selectedChipId = numObj.id;
+    // Update current ink color to match this chip without full re-render
+    currentInkColor = numObj.color || '#1a6bbf';
+    customColorPicker.value = currentInkColor;
+    document.querySelectorAll('.color-preset').forEach(el=>{
+      el.classList.toggle('active', el.dataset.color === currentInkColor);
+    });
+    // Update visual selection highlight without destroying DOM
+    updateChipHighlights();
+  });
+  input.addEventListener('input', ()=>{
+    numObj.value = input.value;
+    updateAllTotals();
+    scheduleSave();
+  });
+  chip.appendChild(input);
+
+  const del = document.createElement('div');
+  del.className = 'del';
+  del.textContent = '×';
+  del.title = 'ลบช่องนี้';
+  del.addEventListener('mousedown', e=>e.stopPropagation());
+  del.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const pd = ensurePage(currentPage);
+    pd.loose = pd.loose.filter(n=>n.id!==numObj.id);
+    if(selectedChipId === numObj.id) selectedChipId = null;
+    renderOverlay(); updateAllTotals(); scheduleSave();
+  });
+  chip.appendChild(del);
+
+  // drag via the ⠿ handle
+  handle.addEventListener('mousedown', (e)=>{
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const origX = numObj.x, origY = numObj.y;
+    function move(ev){
+      numObj.x = origX + (ev.clientX-startX)/scale;
+      numObj.y = origY + (ev.clientY-startY)/scale;
+      reposition();
+    }
+    function up(){ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); scheduleSave(); }
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',up);
+  });
+
+  return chip;
+}
+
+// ---------- Overlay double-click (create new number chip) ----------
+const overlayEl = document.getElementById('overlay');
+overlayEl.addEventListener('dblclick', (e)=>{
+  if(e.target !== overlayEl) return;
+  const rect = overlayEl.getBoundingClientRect();
+  const x = (e.clientX-rect.left)/scale;
+  const y = (e.clientY-rect.top)/scale;
+  const pd = ensurePage(currentPage);
+  const numObj = {id:uid(), x, y, value:'', color: currentInkColor};
+  pd.loose.push(numObj);
+  selectedChipId = numObj.id;
+  renderOverlay();
+  updateAllTotals();
+  scheduleSave();
+  requestAnimationFrame(()=>{
+    const chips = overlayEl.querySelectorAll('.num-chip input');
+    const last = chips[chips.length-1];
+    if(last) last.focus();
+  });
+});
+
+// Deselect chip when clicking on empty overlay area (single click)
+overlayEl.addEventListener('click', (e)=>{
+  if(e.target === overlayEl){
+    selectedChipId = null;
+    updateChipHighlights();
+  }
+});
+
+// ---------- Nav / clear buttons ----------
+document.getElementById('clearPageBtn').addEventListener('click', ()=>{
+  if(confirm('ล้างข้อมูลทั้งหมดในหน้านี้?')){
+    pageData[currentPage] = {loose:[]};
+    selectedChipId = null;
+    renderOverlay(); updateAllTotals(); scheduleSave();
+  }
+});
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  if(currentPage>1){ currentPage--; renderPage(currentPage); }
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  if(currentPage<numPages){ currentPage++; renderPage(currentPage); }
+});
+document.getElementById('pageInput').addEventListener('change', (e)=>{
+  let p = parseInt(e.target.value);
+  if(isNaN(p)) p=1;
+  p = Math.min(Math.max(p,1), numPages);
+  currentPage = p;
+  renderPage(currentPage);
+});
+
+// ---------- Totals ----------
+function pageTotal(p){
+  const pd = pageData[p];
+  if(!pd || !pd.loose) return 0;
+  return pd.loose.reduce((s,n)=>s+parseNum(n.value),0);
+}
+
+function updateAllTotals(){
+  document.getElementById('pageTotal').textContent = fmt(pageTotal(currentPage));
+
+  const pageSummary = document.getElementById('pageSummaryList');
+  const pagesWithData = Object.keys(pageData).map(Number).sort((a,b)=>a-b);
+  if(pagesWithData.length===0){
+    pageSummary.innerHTML = '<span style="color:var(--muted);font-size:12px;">ยังไม่มีข้อมูล</span>';
+    document.getElementById('grandTotal').textContent = fmt(0);
+    return;
+  }
+  pageSummary.innerHTML = '';
+  let grand = 0;
+  pagesWithData.forEach(p=>{
+    const t = pageTotal(p);
+    grand += t;
+    const row = document.createElement('div');
+    row.className = 'page-summary-row' + (p===currentPage ? ' current' : '');
+    row.innerHTML = `<span>หน้า ${p}</span><span>${fmt(t)}</span>`;
+    pageSummary.appendChild(row);
+  });
+  document.getElementById('grandTotal').textContent = fmt(grand);
+}
+
+// ---------- Export as PDF (numbers baked in) ----------
+document.getElementById('exportPdfBtn').addEventListener('click', async ()=>{
+  if(!originalPdfBytes){ alert('กรุณาเลือกไฟล์ PDF ก่อน'); return; }
+  const btn = document.getElementById('exportPdfBtn');
+  const oldText = btn.textContent;
+  btn.textContent = 'กำลังสร้างไฟล์...';
+  btn.disabled = true;
+  try{
+    const pdfDocLib = await PDFLib.PDFDocument.load(originalPdfBytes, {ignoreEncryption:true});
+    const font = await pdfDocLib.embedFont(PDFLib.StandardFonts.HelveticaBold);
+
+    const pageNums = Object.keys(pageData).map(Number).sort((a,b)=>a-b);
+
+    for(const p of pageNums){
+      const pd = pageData[p];
+      if(p < 1 || p > pdfDocLib.getPageCount()) continue;
+      const pdfPage = pdfDocLib.getPage(p-1);
+      const H = pdfPage.getHeight();
+      const W = pdfPage.getWidth();
+
+      // Get pdf.js page to find the viewport at scale=1 (base size)
+      const pjsPage = await pdfDoc.getPage(p);
+      const baseViewport = pjsPage.getViewport({scale:1});
+      // Ratio: how pdf.js base viewport relates to actual PDF page size
+      const ratioX = W / baseViewport.width;
+      const ratioY = H / baseViewport.height;
+
+      (pd.loose||[]).forEach(n=>{
+        if(!n.value) return;
+        const color = n.color || '#1a6bbf';
+        const r = parseInt(color.slice(1,3),16)/255;
+        const g = parseInt(color.slice(3,5),16)/255;
+        const b = parseInt(color.slice(5,7),16)/255;
+        // n.x, n.y are in pdf.js base coordinate space (viewport scale=1)
+        // Convert to actual PDF coordinate space
+        const pdfX = n.x * ratioX;
+        const pdfY = H - (n.y * ratioY) - 12;
+        pdfPage.drawText(String(n.value), {
+          x: pdfX, y: pdfY,
+          size: 12, font, color: PDFLib.rgb(r,g,b),
+        });
+      });
+    }
+
+    const outBytes = await pdfDocLib.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = currentFileName + '-รวมยอด.pdf';
+    a.click();
+  }catch(err){
+    console.error(err);
+    alert('สร้างไฟล์ PDF ไม่สำเร็จ: ' + err.message);
+  }finally{
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+});
+
+// ---------- Persistence (window.storage) ----------
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, 900);
+}
+
+async function doSave(){
+  if(!docKey || !window.storage) return;
+  try{
+    await window.storage.set(docKey, JSON.stringify(pageData), false);
+  }catch(err){
+    console.error(err);
+  }
+}
+
+async function tryLoadSaved(){
+  if(!docKey || !window.storage) return;
+  try{
+    const res = await window.storage.get(docKey, false);
+    if(res && res.value){
+      pageData = JSON.parse(res.value);
+      Object.keys(pageData).forEach(p=>ensurePage(p));
+    }
+  }catch(err){
+    // no saved data yet
+  }
+}
+</script>
 </body>
 </html>
